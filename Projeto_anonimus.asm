@@ -1,0 +1,194 @@
+.686
+.model flat, stdcall
+option casemap :none
+
+
+include \masm32\include\windows.inc
+include \masm32\include\kernel32.inc
+include \masm32\include\user32.inc
+
+includelib \masm32\lib\user32.lib
+includelib \masm32\lib\kernel32.lib
+
+
+
+.data
+;-------valores de iniciaAção do writeConsole e ReadConsole------
+    bufferSize = 256
+    bytesRead dd ?
+    bytesWritten dd ?
+    handleSTDIN dd ?
+    handleSTDOUT dd ?
+
+;-------ValorR salvo do handle do arquivo aberto ----------------
+
+    inputFileHandle dd ?
+    outputFileHandle dd ?
+
+
+;-------Variaveis do nome do arquivo q sera abertTo--------------    
+    bufferInputNome db 256 dup(0)
+    promptInput db "Digite uma string: ", 0
+
+
+;-------Variaveis das coordenadas X e Y da imagem---------------
+    coordX dd 0
+    promptX db "Digite a coordenada x: ", 0
+
+    coordY dd 0
+    promptY db "Digite a coordenada Y: ", 0
+
+;-------Variaveis de largura e altura da imagem-----------------
+    largura dd 0
+    promptLargura db "Digite a largura: ", 0
+
+    altura dd 0;
+    promptAltura db "Digite a altura: ", 0
+
+;-------Variaveis do nome do arquivo que vai ser criado---------
+    bufferOutputName db 265 dup(0)
+    promptOutputName db "Digite o nome do arquivo de saida: ", 0
+
+
+;;-------Array dos bytes do arquivo-----------------------------
+    fileBuffer db 54 dup(0)
+    readCount dd ?
+    writeCount dd ?
+
+    larguraImagem dd 4 dup(0)
+    
+    
+    
+.code
+
+start:
+;-------- Leitura do nome do arquivo q vai ser aberto -----------
+    
+    invoke GetStdHandle, STD_INPUT_HANDLE
+    mov handleSTDIN, eax
+    invoke GetStdHandle, STD_OUTPUT_HANDLE
+    mov handleSTDOUT, eax
+
+
+    invoke WriteConsole, handleSTDOUT, addr promptInput, sizeof promptInput, addr bytesWritten, 0
+
+    invoke ReadConsole, handleSTDIN, addr bufferInputNome, bufferSize, addr bytesRead, 0
+
+    
+;----------Leitura das coordenadas X e Y-------------------------------------------------------
+
+    invoke WriteConsole, handleSTDOUT, addr promptX, sizeof promptX, addr bytesWritten, 0
+
+    invoke ReadConsole, handleSTDIN, addr coordX, bufferSize, addr bytesRead, 0
+
+    
+    invoke WriteConsole, handleSTDOUT, addr promptY, sizeof promptY, addr bytesWritten, 0
+
+    invoke ReadConsole, handleSTDIN, addr coordY, bufferSize, addr bytesRead, 0
+
+    
+;---------- Leitura da largura e altura -------------------------------------------------
+
+    invoke WriteConsole, handleSTDOUT, addr promptLargura, sizeof promptLargura, addr bytesWritten, 0
+
+    invoke ReadConsole, handleSTDIN, addr largura, bufferSize, addr bytesRead, 0
+
+    
+    invoke WriteConsole, handleSTDOUT, addr promptAltura, sizeof promptAltura, addr bytesWritten, 0
+
+    invoke ReadConsole, handleSTDIN, addr altura, bufferSize, addr bytesRead, 0
+
+    
+;---------- Leitura do nome do arquivo que vai ser criado -------------------------------
+
+    invoke WriteConsole, handleSTDOUT, addr promptOutputName, sizeof promptOutputName, addr bytesWritten, 0
+
+    invoke ReadConsole, handleSTDIN, addr bufferOutputName, bufferSize, addr bytesRead, 0
+
+    invoke WriteConsole, handleSTDOUT, addr bufferOutputName, [bytesRead], addr bytesWritten, 0
+
+;---------- Tratamento do nome do arquivo q vai ser aberto pelo programa e para o que vai ser criado (Codigo autorizado pelo professor) ------------------
+
+
+    mov esi, offset bufferInputNome ; Armazenar apontador da string em esi
+
+proximo:
+
+    mov al, [esi] ; Mover caractere atual para al
+    inc esi ; Apontar para o proximo caractere
+    cmp al, 13 ; Verificar se eh o caractere ASCII CR - FINALIZAR
+    jne proximo
+    dec esi ; Apontar para caractere anterior
+    xor al, al ; ASCII 0
+    mov [esi], al ; Inserir ASCII 0 no lugar do ASCII CR
+
+    mov esi, offset bufferOutputName ; Armazenar apontador da string em esi
+
+proximo2:
+
+    mov al, [esi] ; Mover caractere atual para al
+    inc esi ; Apontar para o proximo caractere
+    cmp al, 13 ; Verificar se eh o caractere ASCII CR - FINALIZAR
+    jne proximo2
+    dec esi ; Apontar para caractere anterior
+    xor al, al ; ASCII 0
+    mov [esi], al ; Inserir ASCII 0 no lugar do ASCII CR
+
+
+    ;invoke WriteConsole, handleSTDOUT, addr bufferInputNome, [bytesRead], addr bytesWritten, 0
+
+;--------- Abertura do arquivo e criaçao de um novo arquivo ---------------------------------------------------------------------------------------
+
+    invoke CreateFile, addr bufferInputNome, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL
+    mov inputFileHandle, eax
+
+    invoke CreateFile, addr bufferOutputName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL
+    mov outputFileHandle, eax
+
+;--------- Passando os primeiros 18 Bytes do cabeçalho--------------------------------------------------------------------------------------
+
+    invoke ReadFile, inputFileHandle , addr fileBuffer, 18, addr readCount, NULL 
+
+    invoke WriteFile, outputFileHandle , addr fileBuffer, 18, addr writeCount, NULL
+
+;--------- Obtendo a largura da imagem do arquivo de origem e passando para o arquivo de destino ------------------------------------------
+
+    invoke ReadFile, inputFileHandle, addr larguraImagem, 4, addr readCount, NULL
+
+    ;mov esi, OFFSET fileBuffer  
+    ;xor eax, eax               
+    ;mov ecx, 4                
+    
+;convertLoop:
+    ;movzx ebx, byte ptr [esi]  
+    ;shl eax, 8                 
+    ;or eax, ebx                
+    ;inc esi                    
+    ;loop convertLoop
+
+    invoke WriteConsole, handleSTDOUT, addr larguraImagem, sizeof larguraImagem, addr bytesWritten, 0
+
+
+
+
+    ;mov larguraImagem, eax
+
+    invoke WriteFile, outputFileHandle, addr larguraImagem, 4, addr writeCount, NULL
+
+
+
+
+
+
+;---------- Passando o restante do cabeçalho --------------------------------------------------------------------------------------------------
+
+    invoke ReadFile, inputFileHandle , addr fileBuffer, 32, addr readCount, NULL 
+
+    invoke WriteFile, outputFileHandle , addr fileBuffer, 32, addr writeCount, NULL
+
+    invoke CloseHandle, inputFileHandle
+    invoke CloseHandle, outputFileHandle
+
+    
+    invoke ExitProcess, 0
+end start 
