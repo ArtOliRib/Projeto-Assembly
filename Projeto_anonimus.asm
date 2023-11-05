@@ -211,16 +211,20 @@ finalTratamento:
 
     invoke atodw, addr coordX
     mov coordX, eax
+    mov eax, 0
 
 
     invoke atodw, addr coordY
     mov coordY, eax
+    mov eax,0
 
     invoke atodw, addr largura
     mov largura, eax
+    mov eax, 0
 
     invoke atodw, addr altura
     mov altura, eax
+    mov eax, 0
 
 
 
